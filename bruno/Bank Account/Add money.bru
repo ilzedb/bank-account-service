@@ -1,0 +1,27 @@
+meta {
+  name: Add money
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:8080/api/v1/accounts/ID1/add
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "currency": "EUR",
+    "amount": 10
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

@@ -1,0 +1,14 @@
+services:
+  bank-service:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - bank-data:/data
+    environment:
+      - APPLICATION_EXTERNAL_URL=https://httpbin.org/status
+      - JWT_SECRET_KEY=792B4B6250655368566D597133743677397A24432646294A404D635166546A57
+      - SPRING_DATASOURCE_URL=jdbc:h2:file:/data/bankdb;DB_CLOSE_DELAY=-1
+
+volumes:
+  bank-data:

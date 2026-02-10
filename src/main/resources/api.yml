@@ -1,0 +1,243 @@
+openapi: 3.0.3
+info:
+  title: Bank Account API
+  version: 1.0.0
+  description:
+    A microservice for handling account balances across multiple currencies.
+
+  contact:
+    name: Ilze Dzelme-Berzina
+    email: ilze.dzelme@gmail.com
+
+servers:
+  - url: /api/v1
+    description: Development Environment
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Account
+    description: Information and balance queries.
+  - name: Transactions
+    description: Money operations (Add, Debit, Exchange).
+
+paths:
+  /accounts/{id}/balances:
+    get:
+      tags:
+        - Account
+      operationId: getBalances
+      summary: Retrieve account balances
+      description: Returns a list of currency balances for the account.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: Successful retrieval.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Balance'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFoundEmpty'
+
+  /accounts/{id}/add:
+    post:
+      tags:
+        - Transactions
+      operationId: addMoney
+      summary: Add money to account
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+      responses:
+        '200':
+          description: Money added successfully.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /accounts/{id}/debit:
+    post:
+      tags:
+        - Transactions
+      operationId: debitMoney
+      summary: Debit money from account
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+      responses:
+        '200':
+          description: Money debited successfully.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: Insufficient funds in the specified currency.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /accounts/{id}/exchange:
+    post:
+      tags:
+        - Transactions
+      operationId: exchangeMoney
+      summary: Currency Exchange
+      description: Converts money from one currency to another using fixed internal rates.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExchangeRequest'
+      responses:
+        '200':
+          description: Exchange completed.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    AccountId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      example: 'ID0001'
+
+  schemas:
+    CurrencyCode:
+      type: string
+      description: Supported currencies.
+      enum:
+        - EUR
+        - USD
+        - GBP
+        - SEK
+      example: "EUR"
+
+    Balance:
+      type: object
+      properties:
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        amount:
+          type: number
+          format: decimal
+          example: 1250.75
+        updatedAt:
+          type: string
+          format: date-time
+
+    TransactionRequest:
+      type: object
+      required:
+        - currency
+        - amount
+      properties:
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        amount:
+          type: number
+          minimum: 0.01
+          example: 50.00
+
+    ExchangeRequest:
+      type: object
+      required:
+        - fromCurrency
+        - toCurrency
+        - amount
+      properties:
+        fromCurrency:
+          $ref: '#/components/schemas/CurrencyCode'
+        toCurrency:
+          $ref: '#/components/schemas/CurrencyCode'
+        amount:
+          type: number
+          minimum: 0.01
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "INSUFFICIENT_FUNDS"
+        message:
+          type: string
+          example: "Balance in SEK is too low for this debit."
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+
+  responses:
+    NotFoundEmpty:
+      description: Account not found.
+    BadRequest:
+      description: Malformed JSON or invalid syntax.
+    Unauthorized:
+      description: Authentication token is missing or expired.
+    Forbidden:
+      description: Authenticated user does not own this account resource.
+    Unprocessable:
+      description: Business logic error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServiceUnavailable:
+      description: External audit logging failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Unexpected server failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
